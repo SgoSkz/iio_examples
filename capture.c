@@ -7,6 +7,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
+
+ssize_t sample_cb(const struct iio_channel *ch, void *src, size_t bytes, void *data);
 
 int main(void) {
     struct iio_scan *scan = iio_scan(NULL, "usb");
@@ -68,10 +71,39 @@ int main(void) {
     struct iio_block *blk;
     blk = iio_buffer_create_block(buf, 4096);
 
+    iio_buffer_enable(buf);
+    struct iio_stream *str = iio_buffer_create_stream(buf, 4, 64);
+    blk = (struct iio_block *)iio_stream_get_next_block(str);
+    int size = iio_device_get_sample_size(dev, mask);
+    /* for (void *i = iio_block_start(blk); i < iio_block_end(blk); i += 10) { */
+    /*     printf("%b\n", i); */
+    /* } */
+
+    iio_block_foreach_sample(blk, mask, sample_cb, NULL);
     /* for(void *ptr = iio_block_first(blk, 0); */
     /*     ptr < iio_block_end(blk); */
     /*     ptr += iio_block_step(blk)) { */
     /* } */
-
+    iio_buffer_disable(buf);
     return 0;
+}
+
+bool has_repeat;
+
+ssize_t sample_cb(const struct iio_channel *chn, void *src, size_t bytes, __notused void *d)
+{
+	const struct iio_data_format *fmt = iio_channel_get_data_format(chn);
+	unsigned int j, repeat = has_repeat ? fmt->repeat : 1;
+
+    /* iio_channel_convert(chn, d, src); */
+
+	printf("%s ", iio_channel_get_id(chn));
+	for (j = 0; j < repeat; ++j) {
+		if (bytes == sizeof(int16_t))
+			printf("%" PRIi16 " ", ((int16_t *)src)[j]);
+		else if (bytes == sizeof(int64_t))
+			printf("%" PRIi64 " ", ((int64_t *)src)[j]);
+	}
+
+	return bytes * repeat;
 }
