@@ -47,12 +47,32 @@ int main(void) {
                name, iio_device_is_trigger(dev), iio_device_is_hwmon(dev),
                iio_device_get_attrs_count(dev),
                iio_device_get_channels_count(dev));
+
+    /* Read device attributes */
+    int attr_cnt = iio_device_get_attrs_count(dev);
+    struct iio_attr *attr;
+    void *data[8192*2];
+    char *value;
+    for (int i = 0; i < attr_cnt; i++) {
+        attr = (struct iio_attr *)iio_device_get_attr(dev, i);
+        (void)iio_attr_get_static_value(attr);
+        /* iio_attr_read_longlong(attr, data); */
+        iio_attr_read_raw(attr, (char *)data, 8192*2-1);
+        value = (char*)data;
+        printf("\t\tAttr name: %s\n\
+\t\t\tAttr value (raw): %s\n",
+               iio_attr_get_name(attr),
+               value);
+    }
+
         /* Stop iterating when we reach the device we are looking for */
         if(strcmp(name, "m2k-logic-analyzer-rx") == 0) {
+            if(iio_err(iio_device_get_trigger(dev))) {
+                printf("No trigger\n");
+            }
             break;
         }
     }
-
 
     /* Get number of channels to iterate thru */
     int ch_cnt = iio_device_get_channels_count(dev);
