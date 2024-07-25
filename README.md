@@ -9,3 +9,10 @@ TODO
 ## TODO
 * contributions
 * comments
+* more detailed README
+## DISCLAIMER
+Do not run code arbitrarily. Please check the code before running.
+## How to use
+`gcc -liio [name of file] -o [output exec]`  
+`./[output exec]`  
+where anything in `[]` is to be replaced with the files being used
