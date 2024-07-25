@@ -32,6 +32,7 @@ int main(void) {
     iio_scan_destroy(scan);
 
     struct iio_device *dev;
+    /* Get number of devices so that we can iterate thru it */
     int dev_cnt = iio_context_get_devices_count(ctx);
     char *name;
     int id;
@@ -46,20 +47,19 @@ int main(void) {
                name, iio_device_is_trigger(dev), iio_device_is_hwmon(dev),
                iio_device_get_attrs_count(dev),
                iio_device_get_channels_count(dev));
+        /* Stop iterating when we reach the device we are looking for */
         if(strcmp(name, "m2k-logic-analyzer-rx") == 0) {
-            /* free(name); */
             break;
         }
-        /* free(name); */
     }
-    /* free(dev); */
 
 
+    /* Get number of channels to iterate thru */
     int ch_cnt = iio_device_get_channels_count(dev);
     struct iio_channel *ch;
 
     struct iio_channels_mask *mask;
-    mask = iio_create_channels_mask(16);
+    mask = iio_create_channels_mask(18);
 
     for (int i = 0; i < ch_cnt; i++) {
         ch = iio_device_get_channel(dev, i);
@@ -67,10 +67,13 @@ int main(void) {
         printf("Ch name: %s\n\tScan: %d\n",
                name,
                iio_channel_is_scan_element(ch));
+
+        /* If it can be enabled, enable it, otherwise disable (just in case) */
         if(iio_channel_is_scan_element(ch)) {
             iio_channel_enable(ch, mask);
+        } else {
+            iio_channel_disable(ch, mask);
         }
-        /* free(name); */
     }
 
 
@@ -81,27 +84,35 @@ int main(void) {
     int size = iio_device_get_sample_size(dev, mask);
     blk = iio_buffer_create_block(buf, size);
 
-    iio_buffer_enable(buf);
+    /* iio_buffer_enable is 0 on success */
+    if(iio_buffer_enable(buf) == 0) {
+        printf("Buffer enabled!\n");
+        /* NOTE: 4 blocks, 2 samples */
+        struct iio_stream *str = iio_buffer_create_stream(buf, 4, 16);
 
-    /* NOTE: 4 blocks, 2 samples */
-    struct iio_stream *str = iio_buffer_create_stream(buf, 4, 2);
-    blk = (struct iio_block *)iio_stream_get_next_block(str);
+        blk = (struct iio_block *)iio_stream_get_next_block(str);
 
-    iio_block_foreach_sample(blk, mask, sample_cb, NULL);
+        iio_block_foreach_sample(blk, mask, sample_cb, NULL);
 
-    iio_buffer_disable(buf);
+        iio_buffer_disable(buf);
+        printf("Buffer disabled!\n");
+    }
 
     /* iio_stream_destroy(str); */
     iio_block_destroy(blk);
     iio_buffer_destroy(buf);
     iio_channels_mask_destroy(mask);
     iio_context_destroy(ctx);
+
     /* NOTE: API does not allow for checking if iio_context has been properly
-     * shutdown/destroyed */
+     * shutdown/destroyed. It is recommended to set ctx to NULL after destroyed
+     */
+
     /* if(ctx) { */
     /*     printf("\nCTX exists %d\n", iio_context_get_devices_count(ctx)); */
     /*     return 0; */
     /* } */
+
     return 0;
 }
 
