@@ -79,28 +79,13 @@ int main(void) {
     int size = iio_device_get_sample_size(dev, mask);
     blk = iio_buffer_create_block(buf, size);
 
-    /* iio_block_destroy(blk); */
-    /* iio_buffer_destroy(buf); */
-    /* iio_channels_mask_destroy(mask); */
-    /* iio_context_destroy(ctx); */
-    /* return 0; */
-
     iio_buffer_enable(buf);
+
+    /* NOTE: 4 blocks, 2 samples */
     struct iio_stream *str = iio_buffer_create_stream(buf, 4, 2);
     blk = (struct iio_block *)iio_stream_get_next_block(str);
-    /* void *start = iio_block_start(blk); */
-    /* int len = (intptr_t)iio_block_end(blk) - (intptr_t)start; */
-    /* for (; len; ) { */
-    /*     int nb = fwrite(start, 1, len, stdout); */
-    /*     len -= nb; */
-    /*     start = (void*)((intptr_t) start + nb); */
-    /* } */
 
     iio_block_foreach_sample(blk, mask, sample_cb, NULL);
-    /* for(void *ptr = iio_block_first(blk, 0); */
-    /*     ptr < iio_block_end(blk); */
-    /*     ptr += iio_block_step(blk)) { */
-    /* } */
     iio_buffer_disable(buf);
 
     /* iio_stream_destroy(str); */
