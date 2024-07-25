@@ -46,7 +46,7 @@ int main(void) {
                name, iio_device_is_trigger(dev), iio_device_is_hwmon(dev),
                iio_device_get_attrs_count(dev),
                iio_device_get_channels_count(dev));
-        if(strcmp(name, "m2k-logic-analyzer-tx") == 0) {
+        if(strcmp(name, "m2k-logic-analyzer-rx") == 0) {
             /* free(name); */
             break;
         }
@@ -67,7 +67,9 @@ int main(void) {
         printf("Ch name: %s\n\tScan: %d\n",
                name,
                iio_channel_is_scan_element(ch));
-        iio_channel_enable(ch, mask);
+        if(iio_channel_is_scan_element(ch)) {
+            iio_channel_enable(ch, mask);
+        }
         /* free(name); */
     }
 
@@ -86,6 +88,7 @@ int main(void) {
     blk = (struct iio_block *)iio_stream_get_next_block(str);
 
     iio_block_foreach_sample(blk, mask, sample_cb, NULL);
+
     iio_buffer_disable(buf);
 
     /* iio_stream_destroy(str); */
@@ -106,13 +109,8 @@ bool has_repeat = false;
 
 ssize_t sample_cb(const struct iio_channel *chn, void *src, size_t bytes, __notused void *d)
 {
-    /* void *dst; */
-    /* iio_channel_convert(chn, dst, src); */
 	const struct iio_data_format *fmt = iio_channel_get_data_format(chn);
-    /* printf("%s\n", (char *)dst); */
 	unsigned int j, repeat = has_repeat ? fmt->repeat : 1;
-
-    /* iio_channel_convert(chn, d, src); */
 
 	printf("%s ", iio_channel_get_id(chn));
 	for (j = 0; j < repeat; ++j) {
