@@ -13,6 +13,7 @@ TODO
 ## DISCLAIMER
 Do not run code arbitrarily. Please check the code before running.
 ## How to use
+requires: adalm2k and libiio library
 `gcc -liio [name of file] -o [output exec]`  
 `./[output exec]`  
 where anything in `[]` is to be replaced with the files being used
