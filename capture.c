@@ -56,7 +56,6 @@ int main(void) {
     for (int i = 0; i < attr_cnt; i++) {
         attr = (struct iio_attr *)iio_device_get_attr(dev, i);
         (void)iio_attr_get_static_value(attr);
-        /* iio_attr_read_longlong(attr, data); */
         iio_attr_read_raw(attr, (char *)data, 8192*2-1);
         value = (char*)data;
         printf("\t\tAttr name: %s\n\
@@ -94,23 +93,68 @@ int main(void) {
         } else {
             iio_channel_disable(ch, mask);
         }
+
+    /* Read device attributes */
+    int attr_cnt = iio_device_get_attrs_count(dev);
+    struct iio_attr *attr;
+    void *data[8192*2];
+    char *value;
+    for (int i = 0; i < attr_cnt; i++) {
+        attr = (struct iio_attr *)iio_device_get_attr(dev, i);
+        (void)iio_attr_get_static_value(attr);
+        iio_attr_read_raw(attr, (char *)data, 8192*2-1);
+        value = (char*)data;
+        printf("\t\tAttr name: %s\n\
+\t\t\tAttr value (raw): %s\n",
+               iio_attr_get_name(attr),
+               value);
+    }
     }
 
 
     struct iio_buffer *buf;
     buf = iio_device_create_buffer(dev, 0, mask);
+    if(iio_err(buf)) {
+        printf("Failed to make buffer\n");
+    }
 
     struct iio_block *blk;
     int size = iio_device_get_sample_size(dev, mask);
     blk = iio_buffer_create_block(buf, size);
 
+    struct iio_stream *str;
+
     /* iio_buffer_enable is 0 on success */
-    if(iio_buffer_enable(buf) == 0) {
+    /* if(iio_buffer_enable(buf) == 0) { */
         printf("Buffer enabled!\n");
         /* NOTE: 4 blocks, 2 samples */
-        struct iio_stream *str = iio_buffer_create_stream(buf, 4, 16);
+        str = iio_buffer_create_stream(buf, 4, 1);
+        if (iio_err(str)) {
+            printf("Cannot make stream\n");
+            iio_buffer_disable(buf);
+
+            printf("Buffer disabled!\n");
+            iio_block_destroy(blk);
+            iio_buffer_destroy(buf);
+            iio_channels_mask_destroy(mask);
+            iio_context_destroy(ctx);
+
+            return 0;
+        }
 
         blk = (struct iio_block *)iio_stream_get_next_block(str);
+        if (iio_err(blk)) { 
+            printf("Cannot get next block\n");
+            iio_buffer_disable(buf);
+
+            printf("Buffer disabled!\n");
+            iio_block_destroy(blk);
+            iio_buffer_destroy(buf);
+            iio_channels_mask_destroy(mask);
+            iio_context_destroy(ctx);
+
+            return 0;
+        /* } */
 
         iio_block_foreach_sample(blk, mask, sample_cb, NULL);
 
@@ -136,7 +180,7 @@ int main(void) {
     return 0;
 }
 
-bool has_repeat = false;
+bool has_repeat = true;
 
 ssize_t sample_cb(const struct iio_channel *chn, void *src, size_t bytes, __notused void *d)
 {
