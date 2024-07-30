@@ -72,8 +72,11 @@ int main(void) {
         }
     }
 
-    struct iio_attr *sf = iio_device_find_attr(dev, "sampling_frequency");
-    iio_attr_write_longlong(sf, 1000);
+    iio_device_set_trigger(dev, NULL);
+
+    struct iio_attr *sf = (struct iio_attr *)iio_device_find_attr(dev, "sampling_frequency");
+    iio_attr_write_longlong(sf, 10000);
+    struct iio_attr *tr = (struct iio_attr *)iio_device_find_attr(dev, "trigger");
 
     /* Get number of channels to iterate thru */
     int ch_cnt = iio_device_get_channels_count(dev);
@@ -130,10 +133,10 @@ int main(void) {
         }
     }
 
-
     struct iio_block *blk;
     int size = iio_device_get_sample_size(dev, mask);
-    blk = iio_buffer_create_block(buf, size);
+    blk = iio_buffer_create_block(buf, size * 10000);
+    iio_block_enqueue(blk, 0, 0);
 
     struct iio_stream *str;
 
@@ -141,7 +144,7 @@ int main(void) {
     /* if(iio_buffer_enable(buf) == 0) { */
     printf("Buffer enabled!\n");
     /* NOTE: 4 blocks, 2 samples */
-    str = iio_buffer_create_stream(buf, 4, 32000000);
+    /* str = iio_buffer_create_stream(buf, 4, 10); */
     if (iio_err(str)) {
         printf("Cannot make stream\n");
         iio_buffer_disable(buf);
@@ -154,8 +157,9 @@ int main(void) {
 
         return 0;
     }
+    iio_buffer_enable(buf);
 
-    blk = (struct iio_block *)iio_stream_get_next_block(str);
+    /* blk = (struct iio_block *)iio_stream_get_next_block(str); */
     if (iio_err(blk)) {
         printf("Cannot get next block\n");
         iio_buffer_disable(buf);
@@ -168,8 +172,32 @@ int main(void) {
 
         return 0;
     }
+    iio_block_dequeue(blk, false);
+    iio_block_enqueue(blk, 0, 0);
+    iio_block_dequeue(blk, false);
 
-    iio_block_foreach_sample(blk, mask, sample_cb, NULL);
+    {
+        void *data[8192 * 2];
+        char *value;
+        for (int i = 0; i < buf_attrs_cnt; i++) {
+            struct iio_attr *attr =
+                (struct iio_attr *)iio_buffer_get_attr(buf, i);
+            iio_attr_read_raw(attr, (char *)data, 8192 * 2 - 1);
+            value = (char *)data;
+            printf("Attr name: %s\n\tValue: %s\n", iio_attr_get_name(attr),
+                   value);
+        }
+    }
+
+
+    /* iio_block_foreach_sample(blk, mask, sample_cb, NULL); */
+    ch = iio_device_get_channel(dev, 0);
+    void *data = iio_block_first(blk, ch);
+    void *end = iio_block_end(blk);
+    for(; data < end; data += size) {
+        printf("%s: ", iio_channel_get_id(ch));
+        printf("%d \n", *((int8_t *)data));
+    }
 
     iio_buffer_disable(buf);
     printf("Buffer disabled!\n");
@@ -196,16 +224,17 @@ int main(void) {
 bool has_repeat = true;
 
 ssize_t sample_cb(const struct iio_channel *chn, void *src, size_t bytes,
-                  __notused void *d) {
+                  void *d) {
     const struct iio_data_format *fmt = iio_channel_get_data_format(chn);
     unsigned int j, repeat = has_repeat ? fmt->repeat : 1;
 
     printf("%s ", iio_channel_get_id(chn));
+    printf("%d ", repeat);
     for (j = 0; j < repeat; ++j) {
-        if (bytes == sizeof(int16_t))
-            printf("%" PRIi16 " \n", ((int16_t *)src)[j]);
-        else if (bytes == sizeof(int64_t))
-            printf("%" PRIi64 " \n", ((int64_t *)src)[j]);
+        /* if (bytes == sizeof(int16_t)) */
+            printf("value: %" PRIi8 " \n", ((int8_t *)src)[j]);
+        /* else if (bytes == sizeof(int64_t)) */
+            /* printf("%" PRIi64 " \n", ((int64_t *)src)[j]); */
     }
 
     return bytes * repeat;
